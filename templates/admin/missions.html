@@ -1,0 +1,176 @@
+<!-- ========================================================================
+     AI INTELLIGENCE ZONE — Mission Management
+     ======================================================================== -->
+{% extends "base.html" %}
+{% block title %}Missions{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="page-title">🎯 Mission Control</h1>
+        <p class="page-subtitle">Create, configure, and manage competition missions</p>
+    </div>
+    <button class="btn btn-sm" style="background: var(--arena-primary); color: white;" data-bs-toggle="modal" data-bs-target="#createMissionModal">
+        <i class="bi bi-plus-lg"></i> New Mission
+    </button>
+</div>
+
+<!-- ── Missions Grid ──────────────────────────────────────── -->
+<div class="row g-3">
+    {% for mission in missions %}
+    <div class="col-lg-4 col-md-6">
+        <div class="stat-card" style="height: 100%;">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="badge bg-dark" style="font-family: 'JetBrains Mono'; font-size: 0.7rem;">{{ mission.mission_code }}</span>
+                    <span class="badge {% if mission.difficulty == 'easy' %}bg-success{% elif mission.difficulty == 'medium' %}bg-warning text-dark{% elif mission.difficulty == 'hard' %}bg-danger{% else %}bg-primary{% endif %}" style="font-size: 0.65rem;">
+                        {{ mission.difficulty | upper }}
+                    </span>
+                </div>
+                <div class="d-flex gap-1">
+                    {% if mission.is_visible %}
+                        <span class="badge badge-valid">LIVE</span>
+                    {% else %}
+                        <span class="badge bg-secondary">HIDDEN</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <h6 style="font-weight: 700; margin-bottom: 0.5rem;">{{ mission.title }}</h6>
+            <p style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;" class="text-truncate">{{ mission.description }}</p>
+
+            <div class="row g-2 mb-2" style="font-size: 0.75rem;">
+                <div class="col-6">
+                    <span class="text-muted">Max Points:</span>
+                    <strong style="font-family: 'JetBrains Mono';">{{ mission.max_points }}</strong>
+                </div>
+                <div class="col-6">
+                    <span class="text-muted">Time Limit:</span>
+                    <strong style="font-family: 'JetBrains Mono';">{{ mission.time_limit_seconds }}s</strong>
+                </div>
+                <div class="col-6">
+                    <span class="text-muted">Attempts:</span>
+                    <strong>{{ mission.total_attempts }}</strong>
+                </div>
+                <div class="col-6">
+                    <span class="text-muted">Completions:</span>
+                    <strong class="text-success">{{ mission.total_completions }}</strong>
+                </div>
+            </div>
+
+            {% if mission.first_blood_team_id %}
+            <div style="font-size: 0.7rem; color: #ef4444; margin-bottom: 0.5rem;">
+                🩸 First Blood: {{ mission.first_blood_team_id[:8] }}...
+            </div>
+            {% endif %}
+
+            <div class="d-flex gap-2 mt-auto">
+                <form method="POST" action="{{ url_for('admin.toggle_mission', mission_id=mission.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm {% if mission.is_visible %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                        {% if mission.is_visible %}
+                            <i class="bi bi-eye-slash"></i> Hide
+                        {% else %}
+                            <i class="bi bi-eye"></i> Show
+                        {% endif %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not missions %}
+    <div class="col-12">
+        <div class="stat-card text-center py-5">
+            <i class="bi bi-flag" style="font-size: 3rem; color: #334155;"></i>
+            <p class="text-muted mt-2">No missions created yet. Click "New Mission" to get started.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── Create Mission Modal ───────────────────────────────── -->
+<div class="modal fade" id="createMissionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" style="font-size: 0.95rem;">🎯 Create New Mission</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <form method="POST" action="{{ url_for('admin.create_mission') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Mission Code</label>
+                        <input type="text" name="mission_code" class="form-control" placeholder="e.g., MISSION-01" required style="text-transform: uppercase;">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Title</label>
+                        <input type="text" name="title" class="form-control" placeholder="Mission title" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="3" required placeholder="Detailed mission instructions..."></textarea>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Difficulty</label>
+                        <select name="difficulty" class="form-select">
+                            <option value="easy">Easy</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="hard">Hard</option>
+                            <option value="legendary">Legendary</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Category</label>
+                        <input type="text" name="category" class="form-control" placeholder="e.g., NLP">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max Points</label>
+                        <input type="number" name="max_points" value="100" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Time Limit (s)</label>
+                        <input type="number" name="time_limit" value="600" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Max Retries</label>
+                        <input type="number" name="max_retries" value="20" class="form-control">
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Expected JSON Schema</label>
+                        <textarea name="expected_schema" class="form-control" rows="4" placeholder='{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}' style="font-family: 'JetBrains Mono'; font-size: 0.8rem;"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Expected Fields (JSON array)</label>
+                        <input type="text" name="expected_fields" class="form-control" placeholder='["name", "age", "score"]' style="font-family: 'JetBrains Mono'; font-size: 0.8rem;">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Validation Regex (JSON object)</label>
+                        <input type="text" name="validation_regex" class="form-control" placeholder='{"email": "^[\\w@.]+$"}' style="font-family: 'JetBrains Mono'; font-size: 0.8rem;">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Sample Valid Response</label>
+                        <textarea name="sample_response" class="form-control" rows="3" placeholder='{"name": "Example", "score": 95}' style="font-family: 'JetBrains Mono'; font-size: 0.8rem;"></textarea>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Display Order</label>
+                        <input type="number" name="order_index" value="0" class="form-control">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_visible" id="missionVisible">
+                            <label class="form-check-label" for="missionVisible">Visible to Teams</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">Create Mission</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+{% endblock %}

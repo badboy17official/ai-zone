@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="page-title">🏆 Leaderboard</h1>
+        <p class="page-subtitle">Animated rank transitions, mission progress, and live sorting.</p>
+    </div>
+    <div class="toolbar">
+        <select id="sortBy" class="form-select form-select-sm" style="width: 170px;">
+            <option value="score">Sort: Score</option>
+            <option value="accuracy">Sort: Accuracy</option>
+            <option value="speed">Sort: Speed</option>
+            <option value="validation_rate">Sort: Validation</option>
+        </select>
+        <form method="POST" action="{{ url_for('admin.recalculate_leaderboard') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm btn-outline-warning"><i class="bi bi-calculator"></i> Recalculate</button>
+        </form>
+    </div>
+</div>
+
+{% if teams | length >= 3 %}
+<div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="stat-card text-center" style="margin-top: 1rem;"><div style="font-size: 1.9rem;">🥈</div><div class="fw-bold">{{ teams[1].name }}</div><small class="text-muted">{{ teams[1].team_code }}</small><div class="stat-value">{{ "%.1f"|format(teams[1].total_score + teams[1].bonus_points) }}</div></div></div>
+    <div class="col-md-4"><div class="stat-card text-center" style="border-color: rgba(250,204,21,.65);"><div style="font-size: 2.3rem;">🥇</div><div class="fw-bold fs-5">{{ teams[0].name }}</div><small class="text-muted">{{ teams[0].team_code }}</small><div class="stat-value" style="color:#fde047;">{{ "%.1f"|format(teams[0].total_score + teams[0].bonus_points) }}</div></div></div>
+    <div class="col-md-4"><div class="stat-card text-center" style="margin-top: 1rem;"><div style="font-size: 1.9rem;">🥉</div><div class="fw-bold">{{ teams[2].name }}</div><small class="text-muted">{{ teams[2].team_code }}</small><div class="stat-value">{{ "%.1f"|format(teams[2].total_score + teams[2].bonus_points) }}</div></div></div>
+</div>
+{% endif %}
+
+<div class="arena-table">
+    <table class="table table-dark table-hover mb-0">
+        <thead>
+            <tr>
+                <th style="width:60px;">Rank</th>
+                <th>Team</th>
+                <th>Total</th>
+                <th>Base</th>
+                <th>Bonus</th>
+                <th>Missions</th>
+                <th>Submissions</th>
+                <th>Validation</th>
+                <th>Health</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody id="leaderboardBody">
+        {% for team in teams %}
+            <tr>
+                <td class="text-center">
+                    {% if team.current_rank == 1 %}<span class="badge badge-rank-1">🥇 1</span>
+                    {% elif team.current_rank == 2 %}<span class="badge badge-rank-2">🥈 2</span>
+                    {% elif team.current_rank == 3 %}<span class="badge badge-rank-3">🥉 3</span>
+                    {% else %}<span>#{{ team.current_rank or loop.index }}</span>{% endif %}
+                </td>
+                <td><span class="team-dot" data-color="{{ team.avatar_color }}"></span><strong>{{ team.name }}</strong> <span class="text-muted">{{ team.team_code }}</span></td>
+                <td style="font-family:'JetBrains Mono',monospace;">{{ "%.1f"|format(team.total_score + team.bonus_points) }}</td>
+                <td>{{ "%.1f"|format(team.total_score) }}</td>
+                <td class="text-success">+{{ "%.0f"|format(team.bonus_points) }}</td>
+                <td>{{ team.missions_completed }}</td>
+                <td>{{ team.total_submissions }}</td>
+                <td>{{ "%.1f"|format(team.validation_rate) }}%</td>
+                <td><div class="score-bar" style="width:70px;"><div class="score-bar-fill" data-width="{{ team.health_score }}" data-health="1"></div></div></td>
+                <td><button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#break-{{ team.id }}">Breakdown</button></td>
+            </tr>
+            <tr class="collapse" id="break-{{ team.id }}">
+                <td colspan="10">
+                    <div class="py-2">
+                        <div class="small mb-1">Mission Progress</div>
+                        <div class="progress progress-thin mb-2"><div class="progress-bar bg-info" data-width="{{ [100, team.missions_completed * 20]|min }}"></div></div>
+                        <div class="small text-muted">Institution: {{ team.institution or '—' }} · Error Rate: {{ "%.1f"|format(team.error_rate) }}% · Status: {{ team.status }}</div>
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/leaderboard.js') }}"></script>
+{% endblock %}

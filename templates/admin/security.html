@@ -1,0 +1,114 @@
+<!-- ========================================================================
+     AI INTELLIGENCE ZONE — Security Events Dashboard
+     ======================================================================== -->
+{% extends "base.html" %}
+{% block title %}Security{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="page-title">🛡️ Security Events</h1>
+        <p class="page-subtitle">Injection attempts, anomalies, and security incidents</p>
+    </div>
+</div>
+
+<!-- ── Stats ──────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-value" style="color: #ef4444;">{{ total_events }}</div>
+            <div class="stat-label">Total Events</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-value" style="color: #f59e0b;">{{ critical_events }}</div>
+            <div class="stat-label">Critical Events</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-value" style="color: #06b6d4;">{{ open_events }}</div>
+            <div class="stat-label">Open / Unresolved</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Filters ────────────────────────────────────────────── -->
+<div class="d-flex gap-2 mb-3">
+    <a href="{{ url_for('admin.security') }}" class="btn btn-sm {% if not severity_filter and not status_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">All</a>
+    <a href="{{ url_for('admin.security', severity='critical') }}" class="btn btn-sm {% if severity_filter == 'critical' %}btn-danger{% else %}btn-outline-danger{% endif %}">Critical</a>
+    <a href="{{ url_for('admin.security', severity='high') }}" class="btn btn-sm {% if severity_filter == 'high' %}btn-warning{% else %}btn-outline-warning{% endif %}">High</a>
+    <a href="{{ url_for('admin.security', status='open') }}" class="btn btn-sm {% if status_filter == 'open' %}btn-info{% else %}btn-outline-info{% endif %}">Open</a>
+</div>
+
+<!-- ── Events Table ───────────────────────────────────────── -->
+<div class="arena-table">
+    <table class="table table-dark table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Severity</th>
+                <th>Type</th>
+                <th>Team</th>
+                <th>Description</th>
+                <th>IP</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in events.items %}
+            <tr>
+                <td style="font-family: 'JetBrains Mono'; font-size: 0.7rem;">
+                    {{ event.created_at.strftime('%m-%d %H:%M:%S') }}
+                </td>
+                <td>
+                    {% if event.severity == 'critical' %}
+                        <span class="badge bg-danger">🔴 CRITICAL</span>
+                    {% elif event.severity == 'high' %}
+                        <span class="badge bg-warning text-dark">🟠 HIGH</span>
+                    {% elif event.severity == 'medium' %}
+                        <span class="badge bg-info">🟡 MEDIUM</span>
+                    {% else %}
+                        <span class="badge bg-secondary">⚪ LOW</span>
+                    {% endif %}
+                </td>
+                <td style="font-size: 0.8rem;">{{ event.event_type }}</td>
+                <td>{{ event.team_id[:8] if event.team_id else '—' }}...</td>
+                <td style="font-size: 0.8rem; max-width: 300px;" class="text-truncate">
+                    {{ event.description }}
+                </td>
+                <td style="font-family: 'JetBrains Mono'; font-size: 0.75rem;">{{ event.ip_address or '—' }}</td>
+                <td>
+                    {% if event.status == 'open' %}
+                        <span class="badge" style="background: rgba(239,68,68,0.15); color: #ef4444;">Open</span>
+                    {% elif event.status == 'investigating' %}
+                        <span class="badge" style="background: rgba(245,158,11,0.15); color: #f59e0b;">Investigating</span>
+                    {% elif event.status == 'resolved' %}
+                        <span class="badge badge-valid">Resolved</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ event.status }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if event.status == 'open' %}
+                    <form method="POST" action="{{ url_for('admin.resolve_security_event', event_id=event.id) }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="status" value="resolved">
+                        <input type="hidden" name="notes" value="Reviewed by admin">
+                        <button type="submit" class="btn btn-sm btn-outline-success" title="Resolve">
+                            <i class="bi bi-check-lg"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not events.items %}
+            <tr><td colspan="8" class="text-center text-muted py-4">No security events found</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

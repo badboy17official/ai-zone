@@ -1,0 +1,235 @@
+<!-- ========================================================================
+     AI INTELLIGENCE ZONE — Activity Monitor
+     ======================================================================== -->
+{% extends "base.html" %}
+{% block title %}Activity Monitor{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="page-title">📡 Activity Monitor</h1>
+        <p class="page-subtitle">Live submission tracking, suspicious behavior detection, and activity heat patterns.</p>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-8">
+        <section class="arena-panel p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Heatmap of Submission Activity (24h)</h6>
+                <small class="text-muted">refresh every 10s</small>
+            </div>
+            <div style="height:220px;"><canvas id="activityHeatmapChart"></canvas></div>
+        </section>
+    </div>
+    <div class="col-lg-4">
+        <section class="arena-panel p-3">
+            <h6 class="mb-2">JSON Validation Failure Ratio</h6>
+            <div style="height:220px;"><canvas id="failureRatioChart"></canvas></div>
+        </section>
+    </div>
+</div>
+
+<!-- ── Submission Frequency (Last Hour) ──────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="arena-table">
+            <div class="px-3 py-2" style="border-bottom: 1px solid var(--arena-border);">
+                <h6 class="mb-0" style="font-size: 0.8rem; font-weight: 600;">🔥 Submission Frequency (Last Hour)</h6>
+            </div>
+            <table class="table table-dark table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Team</th>
+                        <th>Submissions</th>
+                        <th>Rate</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for team_code, team_name, count in frequency %}
+                    <tr>
+                        <td>
+                            <strong>{{ team_code }}</strong>
+                            <span class="text-muted ms-1">{{ team_name }}</span>
+                        </td>
+                        <td style="font-family: 'JetBrains Mono'; font-weight: 600;">{{ count }}</td>
+                        <td style="font-size: 0.8rem;">{{ "%.1f"|format(count / 60) }}/min</td>
+                        <td>
+                            {% if count > 30 %}
+                                <span class="badge badge-flagged">🚨 Suspicious</span>
+                            {% elif count > 15 %}
+                                <span class="badge" style="background: rgba(245,158,11,0.15); color: #f59e0b;">⚠️ High</span>
+                            {% else %}
+                                <span class="badge badge-valid">✓ Normal</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not frequency %}
+                    <tr><td colspan="4" class="text-center text-muted py-3">No activity in the last hour</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="arena-table">
+            <div class="px-3 py-2" style="border-bottom: 1px solid var(--arena-border);">
+                <h6 class="mb-0" style="font-size: 0.8rem; font-weight: 600;">🧠 Hallucination Tracker</h6>
+            </div>
+            <table class="table table-dark table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Team</th>
+                        <th>Hallucinations</th>
+                        <th>Total Subs</th>
+                        <th>Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for team_code, team_name, halluc_count, total_subs in hallucination_data %}
+                    <tr>
+                        <td><strong>{{ team_code }}</strong> <span class="text-muted">{{ team_name }}</span></td>
+                        <td style="font-family: 'JetBrains Mono'; color: #ef4444;">{{ halluc_count }}</td>
+                        <td>{{ total_subs }}</td>
+                        <td>
+                            {% set rate = (halluc_count / total_subs * 100) if total_subs > 0 else 0 %}
+                            <span class="{% if rate > 30 %}text-danger{% elif rate > 15 %}text-warning{% else %}text-muted{% endif %}">
+                                {{ "%.1f"|format(rate) }}%
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not hallucination_data %}
+                    <tr><td colspan="4" class="text-center text-muted py-3">No hallucinations detected yet</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── Flagged Submissions ────────────────────────────────── -->
+{% if flagged %}
+<div class="arena-table mb-4">
+    <div class="px-3 py-2" style="border-bottom: 1px solid var(--arena-border); background: rgba(239,68,68,0.05);">
+        <h6 class="mb-0 text-danger" style="font-size: 0.8rem; font-weight: 600;">🚨 Flagged Submissions</h6>
+    </div>
+    <table class="table table-dark table-hover mb-0">
+        <thead>
+            <tr><th>Time</th><th>Team</th><th>Flag Reason</th><th>Prompt Preview</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for sub in flagged %}
+            <tr>
+                <td style="font-family: 'JetBrains Mono'; font-size: 0.75rem;">{{ sub.created_at.strftime('%H:%M:%S') }}</td>
+                <td>{{ sub.team.team_code if sub.team else 'N/A' }}</td>
+                <td><span class="badge badge-flagged">{{ sub.flag_reason or 'Unknown' }}</span></td>
+                <td style="font-size: 0.8rem; max-width: 300px;" class="text-truncate">{{ sub.prompt_text[:100] }}...</td>
+                <td><span class="badge badge-{{ sub.validation_status }}">{{ sub.validation_status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- ── Live Activity Feed ─────────────────────────────────── -->
+<div class="arena-table">
+    <div class="px-3 py-2" style="border-bottom: 1px solid var(--arena-border);">
+        <h6 class="mb-0" style="font-size: 0.8rem; font-weight: 600;">📋 Recent Submissions (Last 50)</h6>
+    </div>
+    <table class="table table-dark table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Team</th>
+                <th>Attempt</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th>Confidence</th>
+                <th>IP Address</th>
+                <th>Flags</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sub, team in recent %}
+            <tr>
+                <td style="font-family: 'JetBrains Mono'; font-size: 0.75rem;">
+                    {{ sub.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                </td>
+                <td><strong>{{ team.team_code }}</strong></td>
+                <td>#{{ sub.attempt_number }}</td>
+                <td><span class="badge badge-{{ sub.validation_status }}">{{ sub.validation_status }}</span></td>
+                <td style="font-family: 'JetBrains Mono';">{{ "%.1f"|format(sub.total_score) }}</td>
+                <td>
+                    <span class="{% if sub.confidence_score > 0.8 %}text-success{% elif sub.confidence_score > 0.5 %}text-warning{% else %}text-danger{% endif %}">
+                        {{ "%.2f"|format(sub.confidence_score) }}
+                    </span>
+                </td>
+                <td style="font-size: 0.75rem; font-family: 'JetBrains Mono';">{{ sub.ip_address or '—' }}</td>
+                <td>
+                    {% if sub.is_flagged %}
+                        <span class="badge badge-flagged"><i class="bi bi-flag-fill"></i></span>
+                    {% endif %}
+                    {% if sub.injection_detected %}
+                        <span class="badge" style="background: rgba(168,85,247,0.15); color: #a855f7;">💉</span>
+                    {% endif %}
+                    {% if sub.is_hallucinated %}
+                        <span class="badge" style="background: rgba(245,158,11,0.15); color: #f59e0b;">🧠</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+    let heatmapChart;
+    let failureChart;
+
+    function refreshActivityVisuals() {
+        fetch('/admin/api/analytics').then(r => r.json()).then(data => {
+            const labels = data.hourly.map(x => x.hour);
+            const totals = data.hourly.map(x => x.total);
+            const invalids = data.hourly.map(x => x.invalid);
+
+            const heatEl = document.getElementById('activityHeatmapChart');
+            const failEl = document.getElementById('failureRatioChart');
+
+            if (heatEl && !heatmapChart) {
+                heatmapChart = new Chart(heatEl, {
+                    type: 'bar',
+                    data: { labels, datasets: [{ label: 'Submissions', data: totals, backgroundColor: 'rgba(109,125,255,.7)' }] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' }, beginAtZero: true } } }
+                });
+            } else if (heatmapChart) {
+                heatmapChart.data.labels = labels;
+                heatmapChart.data.datasets[0].data = totals;
+                heatmapChart.update('none');
+            }
+
+            if (failEl && !failureChart) {
+                failureChart = new Chart(failEl, {
+                    type: 'line',
+                    data: { labels, datasets: [{ label: 'Failures', data: invalids, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.16)', fill: true, tension: .3 }] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' }, beginAtZero: true } } }
+                });
+            } else if (failureChart) {
+                failureChart.data.labels = labels;
+                failureChart.data.datasets[0].data = invalids;
+                failureChart.update('none');
+            }
+        }).catch(() => null);
+    }
+
+    refreshActivityVisuals();
+    setInterval(refreshActivityVisuals, 10000);
+</script>
+{% endblock %}

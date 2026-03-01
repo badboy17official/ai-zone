@@ -1,0 +1,57 @@
+# ==============================================================================
+# AI INTELLIGENCE ZONE — Control Arena
+# .gitignore
+# ==============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment & secrets
+.env
+
+# SQLite database (dev)
+instance/
+*.db
+*.sqlite
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+postgres-data/
+redis-data/
+
+# SSL certs
+nginx/ssl/
+
+# Coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Celery
+celerybeat-schedule*

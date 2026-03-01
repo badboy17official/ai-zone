@@ -1,0 +1,61 @@
+# ==============================================================================
+# AI INTELLIGENCE ZONE — .dockerignore
+# ==============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+*.md
+LICENSE
+
+# Logs & temp
+logs/
+*.log
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests
+tests/
+*.test.py
+htmlcov/
+.coverage
+
+# Nginx config (mounted as volume)
+nginx/
+
+# Instance data (mounted as volume)
+instance/

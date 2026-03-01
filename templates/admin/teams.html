@@ -1,0 +1,270 @@
+<!-- ========================================================================
+     AI INTELLIGENCE ZONE — Team Management
+     ======================================================================== -->
+{% extends "base.html" %}
+{% block title %}Team Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="page-title">👥 Team Management</h1>
+        <p class="page-subtitle">Create, manage, lock/unlock, and monitor all teams from one panel.</p>
+    </div>
+    <button class="btn btn-sm" style="background: var(--arena-primary); color: white;" data-bs-toggle="modal" data-bs-target="#createTeamModal">
+        <i class="bi bi-plus-lg"></i> New Team
+    </button>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="stat-card"><div class="stat-label">Visible Teams</div><div class="stat-value">{{ teams|length }}</div></div></div>
+    <div class="col-md-3"><div class="stat-card"><div class="stat-label">Active</div><div class="stat-value">{{ teams|selectattr('status', 'equalto', 'active')|list|length }}</div></div></div>
+    <div class="col-md-3"><div class="stat-card"><div class="stat-label">Locked</div><div class="stat-value">{{ teams|selectattr('status', 'equalto', 'locked')|list|length }}</div></div></div>
+    <div class="col-md-3"><div class="stat-card"><div class="stat-label">Disqualified</div><div class="stat-value">{{ teams|selectattr('status', 'equalto', 'disqualified')|list|length }}</div></div></div>
+</div>
+
+<!-- ── Filters ────────────────────────────────────────────── -->
+<div class="d-flex gap-2 mb-3">
+    <a href="{{ url_for('admin.teams', status='all') }}" class="btn btn-sm {% if status_filter == 'all' %}btn-primary{% else %}btn-outline-secondary{% endif %}">All</a>
+    <a href="{{ url_for('admin.teams', status='active') }}" class="btn btn-sm {% if status_filter == 'active' %}btn-success{% else %}btn-outline-secondary{% endif %}">Active</a>
+    <a href="{{ url_for('admin.teams', status='locked') }}" class="btn btn-sm {% if status_filter == 'locked' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Locked</a>
+    <a href="{{ url_for('admin.teams', status='disqualified') }}" class="btn btn-sm {% if status_filter == 'disqualified' %}btn-danger{% else %}btn-outline-secondary{% endif %}">Disqualified</a>
+
+    <form id="teamSearchForm" class="ms-auto d-flex gap-2" action="{{ url_for('admin.teams') }}" method="GET">
+        <input type="text" id="teamSearchInput" name="search" value="{{ search }}" placeholder="Search teams..." class="form-control form-control-sm" style="width: 230px;">
+        <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i></button>
+    </form>
+</div>
+
+<!-- ── Teams Table ────────────────────────────────────────── -->
+<div class="arena-table">
+    <table class="table table-dark table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Members</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th>Rank</th>
+                <th>Submissions</th>
+                <th>Valid %</th>
+                <th>Health</th>
+                <th>Last Active</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for team in teams %}
+            <tr>
+                <td>
+                    <span class="team-dot" data-color="{{ team.avatar_color }}"></span>
+                    <strong style="font-family: 'JetBrains Mono', monospace;">{{ team.team_code }}</strong>
+                </td>
+                <td>{{ team.name }}</td>
+                <td>
+                    <span class="badge bg-secondary">{{ team.active_member_count }} / {{ team.members.count() }}</span>
+                </td>
+                <td><span class="badge badge-{{ team.status }}">{{ team.status | upper }}</span></td>
+                <td style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">
+                    {{ "%.1f"|format(team.total_score) }}
+                </td>
+                <td>
+                    {% if team.current_rank %}
+                        #{{ team.current_rank }}
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="text-success">{{ team.successful_validations }}</span> /
+                    <span class="text-muted">{{ team.total_submissions }}</span>
+                </td>
+                <td>
+                    <span class="{% if team.validation_rate > 80 %}text-success{% elif team.validation_rate > 50 %}text-warning{% else %}text-danger{% endif %}">
+                        {{ "%.0f"|format(team.validation_rate) }}%
+                    </span>
+                </td>
+                <td>
+                    <div class="score-bar" style="width: 50px;">
+                        <div class="score-bar-fill" data-width="{{ team.health_score }}" data-health="1"></div>
+                    </div>
+                </td>
+                <td style="font-size: 0.75rem;">
+                    {% if team.last_activity_at %}
+                        {{ team.last_activity_at.strftime('%H:%M:%S') }}
+                    {% else %}
+                        <span class="text-muted">Never</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <!-- Add Member -->
+                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addMemberModal-{{ team.id }}" title="Add Member">
+                            <i class="bi bi-person-plus"></i>
+                        </button>
+                        <!-- Lock/Unlock -->
+                        <form method="POST" action="{{ url_for('admin.toggle_team_lock', team_id=team.id) }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-outline-warning" title="{{ 'Unlock' if team.status == 'locked' else 'Lock' }}">
+                                <i class="bi bi-{{ 'unlock' if team.status == 'locked' else 'lock' }}"></i>
+                            </button>
+                        </form>
+                        <!-- Score Override -->
+                        <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#overrideModal-{{ team.id }}" title="Score Override">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                        <!-- Disqualify -->
+                        {% if team.status != 'disqualified' %}
+                        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#dqModal-{{ team.id }}" title="Disqualify">
+                            <i class="bi bi-x-octagon"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+
+            <!-- Add Member Modal -->
+            <div class="modal fade" id="addMemberModal-{{ team.id }}" tabindex="-1">
+                <div class="modal-dialog"><div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" style="font-size: 0.95rem;">Add Member to {{ team.team_code }}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('admin.add_team_member', team_id=team.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Username</label>
+                                <input type="text" name="username" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" name="email" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <input type="password" name="password" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Role in Team</label>
+                                <select name="role_in_team" class="form-select">
+                                    <option value="member">Member</option>
+                                    <option value="lead">Team Lead</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary btn-sm">Add Member</button>
+                        </div>
+                    </form>
+                </div></div>
+            </div>
+
+            <!-- Score Override Modal -->
+            <div class="modal fade" id="overrideModal-{{ team.id }}" tabindex="-1">
+                <div class="modal-dialog"><div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" style="font-size: 0.95rem;">Score Override — {{ team.team_code }}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('admin.score_override', team_id=team.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="modal-body">
+                            <p class="text-muted" style="font-size: 0.85rem;">Current Score: <strong>{{ "%.1f"|format(team.total_score) }}</strong></p>
+                            <div class="mb-3">
+                                <label class="form-label">New Score</label>
+                                <input type="number" name="new_score" step="0.1" value="{{ team.total_score }}" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Override Type</label>
+                                <select name="override_type" class="form-select">
+                                    <option value="correction">Correction</option>
+                                    <option value="bonus">Bonus</option>
+                                    <option value="penalty">Penalty</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Reason (Required)</label>
+                                <textarea name="reason" class="form-control" rows="2" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-warning btn-sm">Apply Override</button>
+                        </div>
+                    </form>
+                </div></div>
+            </div>
+
+            <!-- Disqualify Modal -->
+            <div class="modal fade" id="dqModal-{{ team.id }}" tabindex="-1">
+                <div class="modal-dialog"><div class="modal-content">
+                    <div class="modal-header bg-danger bg-opacity-10">
+                        <h5 class="modal-title text-danger" style="font-size: 0.95rem;">⚠️ Disqualify {{ team.team_code }}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('admin.disqualify_team', team_id=team.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="modal-body">
+                            <p class="text-warning" style="font-size: 0.85rem;">This action cannot be easily undone. The team will be removed from the leaderboard.</p>
+                            <div class="mb-3">
+                                <label class="form-label">Reason for Disqualification</label>
+                                <textarea name="reason" class="form-control" rows="3" required placeholder="Provide detailed reason..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-danger btn-sm">Confirm Disqualification</button>
+                        </div>
+                    </form>
+                </div></div>
+            </div>
+            {% endfor %}
+
+            {% if not teams %}
+            <tr><td colspan="11" class="text-center text-muted py-4">No teams found</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ── Create Team Modal ─────────────────────────────────── -->
+<div class="modal fade" id="createTeamModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" style="font-size: 0.95rem;">Create New Team</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <form method="POST" action="{{ url_for('admin.create_team') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Team Code</label>
+                    <input type="text" name="team_code" class="form-control" placeholder="e.g., TEAM-ALPHA-01" required style="text-transform: uppercase;">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Team Name</label>
+                    <input type="text" name="name" class="form-control" placeholder="e.g., Neural Knights" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Institution</label>
+                    <input type="text" name="institution" class="form-control" placeholder="e.g., MIT">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary btn-sm">Create Team</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const teamSearchInput = document.getElementById('teamSearchInput');
+    const teamSearchForm = document.getElementById('teamSearchForm');
+    if (teamSearchInput && teamSearchForm && window.ArenaUI) {
+        const debounced = ArenaUI.debounce(() => teamSearchForm.submit(), 350);
+        teamSearchInput.addEventListener('input', debounced);
+    }
+</script>
+{% endblock %}
